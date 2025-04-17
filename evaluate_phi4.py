@@ -1,10 +1,10 @@
 import os
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from datasets import load_dataset
 import numpy as np
 from tqdm import tqdm
-import wandb
+import wandb # type: ignore
 from typing import List, Dict, Any
 import json
 from datetime import datetime
@@ -12,8 +12,28 @@ from datetime import datetime
 class Phi4Evaluator:
     def __init__(self, model_name: str = "microsoft/phi-4-mini-instruct"):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        # Load configuration with custom RoPE scaling
+        config = AutoConfig.from_pretrained(model_name)
+        # Fix the RoPE scaling configuration
+        if hasattr(config, 'rope_scaling') and config.rope_scaling is not None:
+            if 'short_factor' in config.rope_scaling:
+                # Ensure short_factor has length 64
+                if len(config.rope_scaling['short_factor']) != 64:
+                    # Create a new short_factor with length 64
+                    original_factor = config.rope_scaling['short_factor']
+                    if len(original_factor) < 64:
+                        # Pad with zeros if needed
+                        new_factor = original_factor + [0.0] * (64 - len(original_factor))
+                    else:
+                        # Truncate if too long
+                        new_factor = original_factor[:64]
+                    config.rope_scaling['short_factor'] = new_factor
+        
+        # Load model with the fixed configuration
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
+            config=config,
             torch_dtype=torch.float16,
             device_map="auto"
         )
