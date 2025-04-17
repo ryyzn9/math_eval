@@ -42,15 +42,32 @@ This will:
 
 ## Model Configuration Fix
 
-The code includes a fix for the RoPE (Rotary Position Embedding) scaling configuration issue in the Phi-4-mini-instruct model. The error occurs because the model's configuration expects a `short_factor` field with length 64, but the model provides a field with length 48. The code automatically fixes this by:
+The code includes a fix for the RoPE (Rotary Position Embedding) scaling configuration issue in the Phi-4-mini-instruct model. The error occurs because the model's configuration expects a `short_factor` field with length 64, but the model provides a field with length 48.
 
-1. Loading the model configuration
-2. Checking if the RoPE scaling configuration has a `short_factor` field
-3. Adjusting the length of the `short_factor` field to 64 by either:
+### Solution: Monkey-patching the Validation
+
+The code uses a monkey-patch approach to fix this issue:
+
+1. Before loading the model configuration, we disable the strict RoPE scaling validation by replacing the validation method with a no-op function:
+   ```python
+   from transformers.models.phi3.configuration_phi3 import Phi3Config
+   Phi3Config._rope_scaling_validation = lambda self: None
+   ```
+
+2. After loading the configuration, we adjust the length of the `short_factor` field to 64 by either:
    - Padding with zeros if the original length is less than 64
    - Truncating if the original length is greater than 64
 
-This fix is applied in both the `Phi4Evaluator` and `MetricsCalculator` classes.
+This approach allows us to work around the validation issue without modifying the transformers library.
+
+### Alternative Solutions
+
+1. **Upgrade transformers**: If you're using an older version of the transformers library, upgrading to a newer version might fix this issue:
+   ```bash
+   pip install --upgrade transformers
+   ```
+
+2. **Use a different model**: If the issue persists, consider using a different model that doesn't have this configuration issue.
 
 ## Metrics
 
