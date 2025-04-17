@@ -1,3 +1,13 @@
+# --- disable the strict RoPE‐scaling check so we can patch it ourselves ---
+try:
+    from transformers.models.phi3.configuration_phi3 import Phi3Config
+    # make _rope_scaling_validation a no‑op
+    Phi3Config._rope_scaling_validation = lambda self: None
+except ImportError:
+    # if for some reason the class lives elsewhere, you can print(dir()) to find it
+    pass
+# ------------------------------------------------------------------------
+
 from typing import List, Dict, Any
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
