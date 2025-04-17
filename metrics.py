@@ -1,13 +1,30 @@
 from typing import List, Dict, Any
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig
 import torch
 from tqdm import tqdm
 import json
 
 class MetricsCalculator:
     def __init__(self, model_name: str = "microsoft/phi-4-mini-instruct"):
+        # Load configuration with custom RoPE scaling
+        config = AutoConfig.from_pretrained(model_name)
+        # Fix the RoPE scaling configuration
+        if hasattr(config, 'rope_scaling') and config.rope_scaling is not None:
+            if 'short_factor' in config.rope_scaling:
+                # Ensure short_factor has length 64
+                if len(config.rope_scaling['short_factor']) != 64:
+                    # Create a new short_factor with length 64
+                    original_factor = config.rope_scaling['short_factor']
+                    if len(original_factor) < 64:
+                        # Pad with zeros if needed
+                        new_factor = original_factor + [0.0] * (64 - len(original_factor))
+                    else:
+                        # Truncate if too long
+                        new_factor = original_factor[:64]
+                    config.rope_scaling['short_factor'] = new_factor
+        
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         
     def calculate_metrics(self, results: List[Dict[str, Any]]) -> Dict[str, float]:
